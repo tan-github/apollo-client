@@ -183,6 +183,7 @@ class ApolloClient
 
         // 获取结果
         $response_list = [];
+
         foreach ($request_list as $namespaceName => $req) {
             $response_list[$namespaceName] = true;
             $result = curl_multi_getcontent($req['ch']);
@@ -203,20 +204,19 @@ class ApolloClient
         return $response_list;
     }
 
-    protected function _listenChange(&$ch, $callback = null)
+    protected function _listenChange($callback = null)
     {
-        $base_url = rtrim($this->configServer, '/') . '/notifications/v2?';
-        $params = [];
-        $params['appId'] = $this->appId;
-        $params['cluster'] = $this->cluster;
         do {
+            $base_url = rtrim($this->configServer, '/') . '/notifications/v2?';
+            $params = [];
+            $params['appId'] = $this->appId;
+            $params['cluster'] = $this->cluster;
             $params['notifications'] = json_encode(array_values($this->notifications));
             $query = http_build_query($params);
-            curl_setopt($ch, CURLOPT_URL, $base_url . $query);
-            $response = curl_exec($ch);
+            $base_url = $base_url . $query;
 
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $error = curl_error($ch);
+            list($httpCode,$response,$error) = $this->getReponse($base_url);
+
             if ($httpCode == 200) {
                 $res = json_decode($response, true);
                 $change_list = [];
@@ -226,17 +226,40 @@ class ApolloClient
                         $change_list[$r['namespaceName']] = $r['notificationId'];
                     }
                 }
-                $response_list = $this->pullConfigBatch(array_keys($change_list));
 
+                $response_list = $this->pullConfigBatch(array_keys($change_list));
+//                $response_list = array();
                 foreach ($response_list as $namespaceName => $result) {
                     $result && ($this->notifications[$namespaceName]['notificationId'] = $change_list[$namespaceName]);
                 }
                 //如果定义了配置变更的回调，比如重新整合配置，则执行回调
                 ($callback instanceof \Closure) && call_user_func($callback);
+            } elseif ($httpCode == 0 && $this->isServer) {
+                echo 'Getting config ......' . PHP_EOL;
             } elseif ($httpCode != 304) {
                 throw new \Exception($response ?: $error);
             }
         } while ($this->isServer);
+    }
+
+    protected function getReponse($base_url)
+    {
+        $ch = curl_init();
+
+        curl_setopt($ch, CURLOPT_TIMEOUT, $this->intervalTimeout);
+        curl_setopt($ch, CURLOPT_HEADER, false);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_URL, $base_url);
+
+        $response = curl_exec($ch);
+
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+
+        curl_close($ch);
+        unset($ch);
+
+        return array($httpCode,$response,$error);
     }
 
     /**
@@ -245,14 +268,10 @@ class ApolloClient
      */
     public function start($callback = null)
     {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_TIMEOUT, $this->intervalTimeout);
-        curl_setopt($ch, CURLOPT_HEADER, false);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+
         try {
-            $this->_listenChange($ch, $callback);
+            $this->_listenChange($callback);
         } catch (\Exception $e) {
-            curl_close($ch);
             return $e->getMessage();
         }
     }
