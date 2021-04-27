@@ -2,11 +2,7 @@
     "name": "tan-github/apollo-client",
     "description": "apollo客户端",
     "type": "library",
+    "license": "MIT",
     "minimum-stability": "dev",
-    "require": {},
-	"autoload": {
-        "psr-4": {
-            "Apollo\\Client\\": "src/"
-        }
-    }
+    "require": {}
 }
