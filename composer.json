@@ -1,8 +1,8 @@
 {
     "name": "tan-github/apollo-client",
     "description": "apollo客户端",
-    "type": "library",
+    "type": "Stability",
     "license": "MIT",
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "require": {}
 }
