@@ -8,7 +8,7 @@ class ApolloClient
     protected $appId; //apollo配置项目的appid
     protected $cluster = 'default';
     protected $clientIp = '127.0.0.1'; //绑定IP做灰度发布用
-    protected $notifications = [];
+    protected $notifications = array();
     protected $pullTimeout = 10; //获取某个namespace配置的请求超时时间
     protected $intervalTimeout = 60; //每次请求获取apollo配置变更时的超时时间
     protected $saveDir; //配置保存目录
@@ -25,7 +25,7 @@ class ApolloClient
         $this->configServer = $configServer;
         $this->appId = $appId;
         foreach ($namespaces as $namespace) {
-            $this->notifications[$namespace] = ['namespaceName' => $namespace, 'notificationId' => -1];
+            $this->notifications[$namespace] = array('namespaceName' => $namespace, 'notificationId' => -1);
         }
         $this->saveDir = dirname($_SERVER['SCRIPT_FILENAME']);
     }
@@ -102,7 +102,7 @@ class ApolloClient
     //获取单个namespace的配置文件路径
     public function getConfigFile($namespaceName)
     {
-        return $this->saveDir . DIRECTORY_SEPARATOR .  $namespaceName . '.php';
+        return $this->saveDir . DIRECTORY_SEPARATOR . $namespaceName . '.php';
     }
 
     //获取单个namespace的配置-无缓存的方式
@@ -111,7 +111,7 @@ class ApolloClient
         $base_api = rtrim($this->configServer, '/') . '/configs/' . $this->appId . '/' . $this->cluster . '/';
         $api = $base_api . $namespaceName;
 
-        $args = [];
+        $args = array();
         $args['ip'] = $this->clientIp;
         $config_file = $this->getConfigFile($namespaceName);
         $args['releaseKey'] = $this->_getReleaseKey($config_file);
@@ -142,14 +142,14 @@ class ApolloClient
     //获取多个namespace的配置-无缓存的方式
     public function pullConfigBatch(array $namespaceNames)
     {
-        if (!$namespaceNames) return [];
+        if (!$namespaceNames) return array();
         $multi_ch = curl_multi_init();
-        $request_list = [];
+        $request_list = array();
         $base_url = rtrim($this->configServer, '/') . '/configs/' . $this->appId . '/' . $this->cluster . '/';
-        $query_args = [];
+        $query_args = array();
         $query_args['ip'] = $this->clientIp;
         foreach ($namespaceNames as $namespaceName) {
-            $request = [];
+            $request = array();
             $config_file = $this->getConfigFile($namespaceName);
             $request_url = $base_url . $namespaceName;
             $query_args['releaseKey'] = $this->_getReleaseKey($config_file);
@@ -182,7 +182,7 @@ class ApolloClient
         }
 
         // 获取结果
-        $response_list = [];
+        $response_list = array();
 
         foreach ($request_list as $namespaceName => $req) {
             $response_list[$namespaceName] = true;
@@ -191,6 +191,7 @@ class ApolloClient
             $error = curl_error($req['ch']);
             curl_multi_remove_handle($multi_ch, $req['ch']);
             curl_close($req['ch']);
+
             if ($code == 200) {
                 $result = json_decode($result, true);
                 $content = '<?php return ' . var_export($result, true) . ';';
@@ -208,7 +209,7 @@ class ApolloClient
     {
         do {
             $base_url = rtrim($this->configServer, '/') . '/notifications/v2?';
-            $params = [];
+            $params = array();
             $params['appId'] = $this->appId;
             $params['cluster'] = $this->cluster;
             $params['notifications'] = json_encode(array_values($this->notifications));
@@ -219,7 +220,7 @@ class ApolloClient
 
             if ($httpCode == 200) {
                 $res = json_decode($response, true);
-                $change_list = [];
+                $change_list = array();
 
                 foreach ($res as $r) {
                     if ($r['notificationId'] != $this->notifications[$r['namespaceName']]['notificationId']) {
@@ -228,7 +229,6 @@ class ApolloClient
                 }
 
                 $response_list = $this->pullConfigBatch(array_keys($change_list));
-//                $response_list = array();
                 foreach ($response_list as $namespaceName => $result) {
                     $result && ($this->notifications[$namespaceName]['notificationId'] = $change_list[$namespaceName]);
                 }
